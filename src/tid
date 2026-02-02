@@ -1,0 +1,482 @@
+#!/bin/bash
+# tid - Terminal Identity CLI
+# Manage terminal identity icons
+# Compatible with bash 3.2+ and zsh
+
+set -e
+
+# Configuration paths
+TID_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/terminal-id"
+TID_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/terminal-id"
+TID_RULES_FILE="$TID_CONFIG_DIR/rules.toml"
+TID_IDENTITIES_FILE="$TID_CONFIG_DIR/identities.toml"
+
+# Default identities - space-separated "name:emoji:description" entries
+# Using | as internal separator since : appears in descriptions
+TID_DEFAULTS="
+bolt|⚡|Fast, performance, or scripts
+bug|🐛|Debugging or bug fixes
+cloud|☁️|Cloud, AWS, or remote systems
+database|🗄️|Database or data projects
+docker|🐳|Docker or container projects
+docs|📚|Documentation projects
+fire|🔥|Hot, active, or urgent work
+gear|⚙️|Infrastructure, config, or tooling
+gem|💎|Ruby or precious projects
+go|🐹|Go/Golang projects
+heart|❤️|Personal or passion projects
+home|🏠|Home directory or personal
+lock|🔒|Security or authentication
+node|📦|Node.js or package projects
+python|🐍|Python projects
+robot|🤖|AI, automation, or bots
+rocket|🚀|Launch, deploy, or API projects
+rust|🦀|Rust projects
+star|⭐|Important or favorite projects
+success|✅|Completed or stable projects
+test|🧪|Testing or experiments
+tree|🌳|Frontend, UI, or growth projects
+warning|⚠️|Production or danger zones
+work|💼|Work or professional projects
+"
+
+# Get emoji for a default identity
+get_default_emoji() {
+    local name="$1"
+    echo "$TID_DEFAULTS" | while IFS='|' read -r n e d; do
+        if [ "$n" = "$name" ]; then
+            echo "$e"
+            return 0
+        fi
+    done
+}
+
+# Check if identity exists in defaults
+identity_exists() {
+    local name="$1"
+    echo "$TID_DEFAULTS" | grep -q "^${name}|"
+}
+
+# Ensure config directory exists
+ensure_config_dir() {
+    mkdir -p "$TID_CONFIG_DIR"
+}
+
+# Show usage
+usage() {
+    cat << 'EOF'
+tid - Terminal Identity CLI
+
+Usage:
+    tid set <identity>              Set session identity (e.g., tid set rocket)
+    tid unset                       Remove session identity override
+    tid current                     Show current identity
+    tid list                        List all available identities
+    tid rule <path> <identity>      Add a directory rule
+    tid rules                       List all directory rules
+    tid rule-remove <path>          Remove a directory rule
+    tid help                        Show this help message
+
+Examples:
+    tid set rocket                  Set current session to rocket icon
+    tid rule ~/projects/api rocket  Always use rocket for ~/projects/api
+    tid list                        Show all available identities
+
+Environment:
+    TID_IDENTITY                    Override identity for current session
+EOF
+}
+
+# List all identities
+cmd_list() {
+    echo "Available identities:"
+    echo ""
+
+    # Display default identities (already sorted in TID_DEFAULTS)
+    echo "$TID_DEFAULTS" | while IFS='|' read -r name emoji desc; do
+        if [ -n "$name" ]; then
+            printf "  %-12s %s  %s\n" "$name" "$emoji" "$desc"
+        fi
+    done
+
+    # Check for custom identities
+    if [ -f "$TID_IDENTITIES_FILE" ]; then
+        echo ""
+        echo "Custom identities (from $TID_IDENTITIES_FILE):"
+        current_section=""
+        while IFS= read -r line; do
+            # Match [section]
+            case "$line" in
+                \[*\])
+                    current_section="${line#[}"
+                    current_section="${current_section%]}"
+                    ;;
+                emoji\ =\ \"*\"|emoji=\"*\")
+                    if [ -n "$current_section" ]; then
+                        # Extract emoji value
+                        emoji="${line#*\"}"
+                        emoji="${emoji%\"*}"
+                        # Check if not a default
+                        if ! identity_exists "$current_section"; then
+                            printf "  %-12s %s\n" "$current_section" "$emoji"
+                        fi
+                    fi
+                    ;;
+            esac
+        done < "$TID_IDENTITIES_FILE"
+    fi
+}
+
+# Get emoji for any identity (default or custom)
+get_emoji() {
+    local name="$1"
+    local emoji
+
+    # Check defaults first
+    emoji=$(echo "$TID_DEFAULTS" | while IFS='|' read -r n e d; do
+        if [ "$n" = "$name" ]; then
+            echo "$e"
+            break
+        fi
+    done)
+
+    if [ -n "$emoji" ]; then
+        echo "$emoji"
+        return 0
+    fi
+
+    # Check custom identities
+    if [ -f "$TID_IDENTITIES_FILE" ]; then
+        in_section=0
+        while IFS= read -r line; do
+            case "$line" in
+                \["$name"\])
+                    in_section=1
+                    ;;
+                \[*\])
+                    in_section=0
+                    ;;
+                emoji\ =\ \"*\"|emoji=\"*\")
+                    if [ "$in_section" = "1" ]; then
+                        emoji="${line#*\"}"
+                        emoji="${emoji%\"*}"
+                        echo "$emoji"
+                        return 0
+                    fi
+                    ;;
+            esac
+        done < "$TID_IDENTITIES_FILE"
+    fi
+
+    return 1
+}
+
+# Set session identity
+cmd_set() {
+    local identity="$1"
+
+    if [ -z "$identity" ]; then
+        echo "Error: identity name required"
+        echo "Usage: tid set <identity>"
+        echo "Run 'tid list' to see available identities"
+        exit 1
+    fi
+
+    # Verify identity exists
+    if ! identity_exists "$identity"; then
+        # Check custom identities
+        if [ ! -f "$TID_IDENTITIES_FILE" ] || ! grep -q "^\[$identity\]" "$TID_IDENTITIES_FILE" 2>/dev/null; then
+            echo "Error: unknown identity '$identity'"
+            echo "Run 'tid list' to see available identities"
+            exit 1
+        fi
+    fi
+
+    local emoji
+    emoji=$(get_emoji "$identity")
+
+    echo "Setting identity to: $identity $emoji"
+    echo ""
+    echo "Run this command to apply:"
+    echo "  export TID_IDENTITY='$identity'"
+    echo ""
+    echo "Or add to your shell rc file for persistence."
+
+    # Export for current process
+    export TID_IDENTITY="$identity"
+}
+
+# Unset session identity
+cmd_unset() {
+    echo "Removing identity override."
+    echo ""
+    echo "Run this command to apply:"
+    echo "  unset TID_IDENTITY"
+
+    unset TID_IDENTITY
+}
+
+# Show current identity
+cmd_current() {
+    local identity=""
+    local source=""
+
+    # Check TID_IDENTITY
+    if [ -n "$TID_IDENTITY" ]; then
+        identity="$TID_IDENTITY"
+        source="environment (TID_IDENTITY)"
+    fi
+
+    # Check directory rules
+    if [ -z "$identity" ] && [ -f "$TID_RULES_FILE" ]; then
+        local dir="$PWD"
+        while IFS= read -r line; do
+            # Skip comments and empty lines
+            case "$line" in
+                \#*|"") continue ;;
+            esac
+
+            # Parse "path" = "identity"
+            case "$line" in
+                \"*\"\ =\ \"*\"|\"*\"=\"*\")
+                    rule_path="${line#\"}"
+                    rule_path="${rule_path%%\"*}"
+                    rule_identity="${line##*= \"}"
+                    rule_identity="${rule_identity%\"*}"
+
+                    # Expand ~
+                    case "$rule_path" in
+                        \~*) rule_path="$HOME${rule_path#\~}" ;;
+                    esac
+
+                    # Check match
+                    case "$dir" in
+                        "$rule_path"|"$rule_path"/*)
+                            identity="$rule_identity"
+                            source="directory rule ($rule_path)"
+                            break
+                            ;;
+                    esac
+                    ;;
+            esac
+        done < "$TID_RULES_FILE"
+    fi
+
+    # Check git root
+    if [ -z "$identity" ]; then
+        local git_root
+        git_root=$(git rev-parse --show-toplevel 2>/dev/null) || git_root=""
+        if [ -n "$git_root" ] && [ -f "$TID_RULES_FILE" ]; then
+            while IFS= read -r line; do
+                case "$line" in
+                    \#*|"") continue ;;
+                esac
+
+                case "$line" in
+                    \"*\"\ =\ \"*\"|\"*\"=\"*\")
+                        rule_path="${line#\"}"
+                        rule_path="${rule_path%%\"*}"
+                        rule_identity="${line##*= \"}"
+                        rule_identity="${rule_identity%\"*}"
+
+                        case "$rule_path" in
+                            \~*) rule_path="$HOME${rule_path#\~}" ;;
+                        esac
+
+                        if [ "$git_root" = "$rule_path" ]; then
+                            identity="$rule_identity"
+                            source="git root rule ($rule_path)"
+                            break
+                        fi
+                        ;;
+                esac
+            done < "$TID_RULES_FILE"
+        fi
+    fi
+
+    if [ -n "$identity" ]; then
+        local emoji
+        emoji=$(get_emoji "$identity")
+        echo "Current identity: $identity $emoji"
+        echo "Source: $source"
+    else
+        echo "No explicit identity set."
+        echo "Using hash-based fallback for: $PWD"
+
+        # Calculate fallback
+        local hash_source="$PWD"
+        local git_root
+        git_root=$(git rev-parse --show-toplevel 2>/dev/null) || git_root=""
+        if [ -n "$git_root" ]; then
+            hash_source="$git_root"
+        fi
+
+        # Simple hash using cksum
+        local hash
+        hash=$(echo "$hash_source" | cksum | cut -d' ' -f1)
+        local fallbacks="🔵 🟢 🟡 🟠 🔴 🟣 ⚪ 🟤 💠 🔷 🔶 🔸 🔹 🌐 💫 ✨"
+        local count=16
+        local idx=$((hash % count))
+        local emoji
+        emoji=$(echo "$fallbacks" | cut -d' ' -f$((idx + 1)))
+        echo "Fallback emoji: $emoji"
+    fi
+}
+
+# Add a directory rule
+cmd_rule() {
+    local path="$1"
+    local identity="$2"
+
+    if [ -z "$path" ] || [ -z "$identity" ]; then
+        echo "Error: path and identity required"
+        echo "Usage: tid rule <path> <identity>"
+        exit 1
+    fi
+
+    # Expand path
+    case "$path" in
+        \~*) path="$HOME${path#\~}" ;;
+    esac
+
+    # Resolve to absolute path if it exists
+    if [ -d "$path" ]; then
+        path=$(cd "$path" && pwd)
+    fi
+
+    # Verify identity exists
+    if ! identity_exists "$identity"; then
+        if [ ! -f "$TID_IDENTITIES_FILE" ] || ! grep -q "^\[$identity\]" "$TID_IDENTITIES_FILE" 2>/dev/null; then
+            echo "Error: unknown identity '$identity'"
+            echo "Run 'tid list' to see available identities"
+            exit 1
+        fi
+    fi
+
+    ensure_config_dir
+
+    # Remove existing rule for this path if any
+    if [ -f "$TID_RULES_FILE" ]; then
+        # Create temp file without the old rule
+        grep -v "^\"$path\"" "$TID_RULES_FILE" > "$TID_RULES_FILE.tmp" 2>/dev/null || true
+        mv "$TID_RULES_FILE.tmp" "$TID_RULES_FILE"
+    fi
+
+    # Add header if file is new or empty
+    if [ ! -f "$TID_RULES_FILE" ] || [ ! -s "$TID_RULES_FILE" ]; then
+        echo "# Terminal Identity Rules" > "$TID_RULES_FILE"
+        echo "# Format: \"path\" = \"identity\"" >> "$TID_RULES_FILE"
+        echo "" >> "$TID_RULES_FILE"
+    fi
+
+    # Add the rule
+    echo "\"$path\" = \"$identity\"" >> "$TID_RULES_FILE"
+
+    local emoji
+    emoji=$(get_emoji "$identity")
+    echo "Added rule: $path -> $identity $emoji"
+}
+
+# List rules
+cmd_rules() {
+    if [ ! -f "$TID_RULES_FILE" ]; then
+        echo "No rules configured."
+        echo "Add rules with: tid rule <path> <identity>"
+        exit 0
+    fi
+
+    echo "Directory rules:"
+    echo ""
+
+    while IFS= read -r line; do
+        case "$line" in
+            \#*|"") continue ;;
+        esac
+
+        case "$line" in
+            \"*\"\ =\ \"*\"|\"*\"=\"*\")
+                rule_path="${line#\"}"
+                rule_path="${rule_path%%\"*}"
+                rule_identity="${line##*= \"}"
+                rule_identity="${rule_identity%\"*}"
+                emoji=$(get_emoji "$rule_identity")
+                printf "  %-40s -> %s %s\n" "$rule_path" "$rule_identity" "$emoji"
+                ;;
+        esac
+    done < "$TID_RULES_FILE"
+}
+
+# Remove a rule
+cmd_rule_remove() {
+    local path="$1"
+
+    if [ -z "$path" ]; then
+        echo "Error: path required"
+        echo "Usage: tid rule-remove <path>"
+        exit 1
+    fi
+
+    if [ ! -f "$TID_RULES_FILE" ]; then
+        echo "No rules configured."
+        exit 1
+    fi
+
+    # Expand path
+    case "$path" in
+        \~*) path="$HOME${path#\~}" ;;
+    esac
+
+    if [ -d "$path" ]; then
+        path=$(cd "$path" && pwd)
+    fi
+
+    if grep -q "^\"$path\"" "$TID_RULES_FILE" 2>/dev/null; then
+        grep -v "^\"$path\"" "$TID_RULES_FILE" > "$TID_RULES_FILE.tmp"
+        mv "$TID_RULES_FILE.tmp" "$TID_RULES_FILE"
+        echo "Removed rule for: $path"
+    else
+        echo "No rule found for: $path"
+        exit 1
+    fi
+}
+
+# Main command dispatch
+main() {
+    local cmd="${1:-help}"
+    shift 2>/dev/null || true
+
+    case "$cmd" in
+        set)
+            cmd_set "$@"
+            ;;
+        unset)
+            cmd_unset
+            ;;
+        current)
+            cmd_current
+            ;;
+        list)
+            cmd_list
+            ;;
+        rule)
+            cmd_rule "$@"
+            ;;
+        rules)
+            cmd_rules
+            ;;
+        rule-remove)
+            cmd_rule_remove "$@"
+            ;;
+        help|--help|-h)
+            usage
+            ;;
+        *)
+            echo "Unknown command: $cmd"
+            echo ""
+            usage
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

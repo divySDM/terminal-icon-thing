@@ -1,0 +1,13 @@
+# Terminal Identity Configuration
+# Copy to ~/.config/terminal-id/config.toml
+
+# Default identity when no rules match and no env var is set
+# Leave empty to use hash-based fallback (colored circles)
+default_identity = ""
+
+# Whether to show identity in terminal title bar (in addition to prompt)
+# Requires terminal support for title escape codes
+update_title = false
+
+# Cache timeout in seconds (0 = cache indefinitely until directory change)
+cache_timeout = 0

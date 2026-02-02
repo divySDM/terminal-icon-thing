@@ -1,0 +1,98 @@
+# Default Terminal Identity Icons
+# Each identity has a name, emoji, and optional description
+
+[rocket]
+emoji = "🚀"
+description = "Launch, deploy, or API projects"
+
+[tree]
+emoji = "🌳"
+description = "Frontend, UI, or growth projects"
+
+[gear]
+emoji = "⚙️"
+description = "Infrastructure, config, or tooling"
+
+[bolt]
+emoji = "⚡"
+description = "Fast, performance, or scripts"
+
+[star]
+emoji = "⭐"
+description = "Important or favorite projects"
+
+[heart]
+emoji = "❤️"
+description = "Personal or passion projects"
+
+[fire]
+emoji = "🔥"
+description = "Hot, active, or urgent work"
+
+[cloud]
+emoji = "☁️"
+description = "Cloud, AWS, or remote systems"
+
+[database]
+emoji = "🗄️"
+description = "Database or data projects"
+
+[lock]
+emoji = "🔒"
+description = "Security or authentication"
+
+[bug]
+emoji = "🐛"
+description = "Debugging or bug fixes"
+
+[test]
+emoji = "🧪"
+description = "Testing or experiments"
+
+[docs]
+emoji = "📚"
+description = "Documentation projects"
+
+[home]
+emoji = "🏠"
+description = "Home directory or personal"
+
+[work]
+emoji = "💼"
+description = "Work or professional projects"
+
+[warning]
+emoji = "⚠️"
+description = "Production or danger zones"
+
+[success]
+emoji = "✅"
+description = "Completed or stable projects"
+
+[robot]
+emoji = "🤖"
+description = "AI, automation, or bots"
+
+[gem]
+emoji = "💎"
+description = "Ruby or precious projects"
+
+[python]
+emoji = "🐍"
+description = "Python projects"
+
+[node]
+emoji = "📦"
+description = "Node.js or package projects"
+
+[rust]
+emoji = "🦀"
+description = "Rust projects"
+
+[go]
+emoji = "🐹"
+description = "Go/Golang projects"
+
+[docker]
+emoji = "🐳"
+description = "Docker or container projects"

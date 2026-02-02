@@ -1,0 +1,5 @@
+inspiration/
+
+# Config files created during testing
+*.tmp
+*.bak

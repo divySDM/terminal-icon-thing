@@ -1,0 +1,38 @@
+# Custom Terminal Identities
+# Copy to ~/.config/terminal-id/identities.toml
+# Add your own identities here to supplement the defaults
+
+# Example: Custom project identities
+[myproject]
+emoji = "🎯"
+description = "My main project"
+
+[client-a]
+emoji = "🏢"
+description = "Client A work"
+
+[client-b]
+emoji = "🏭"
+description = "Client B work"
+
+# Example: Environment identities
+[prod]
+emoji = "🔴"
+description = "Production - be careful!"
+
+[staging]
+emoji = "🟡"
+description = "Staging environment"
+
+[dev]
+emoji = "🟢"
+description = "Development environment"
+
+# Example: Custom language/framework
+[elixir]
+emoji = "💧"
+description = "Elixir projects"
+
+[swift]
+emoji = "🐦"
+description = "Swift/iOS projects"

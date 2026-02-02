@@ -1,0 +1,27 @@
+# Terminal Identity Rules
+# Copy to ~/.config/terminal-id/rules.toml
+# Format: "path" = "identity"
+
+# Project directories
+"~/projects/api-server" = "rocket"
+"~/projects/frontend" = "tree"
+"~/projects/infrastructure" = "gear"
+"~/projects/docs" = "docs"
+
+# Work directories
+"~/work" = "work"
+"~/work/client-a" = "client-a"
+"~/work/client-b" = "client-b"
+
+# Personal
+"~" = "home"
+"~/personal" = "heart"
+
+# Dangerous zones
+"/etc" = "warning"
+"/var/log" = "warning"
+
+# Language-specific (if you organize by language)
+"~/code/rust" = "rust"
+"~/code/python" = "python"
+"~/code/go" = "go"
