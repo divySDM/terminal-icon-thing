@@ -127,52 +127,42 @@ case "$SHELL_NAME" in
         ;;
 esac
 
-# Check if already configured
+# Add shell integration if not already present
 SOURCE_LINE="source \"$INSTALL_DIR/terminal-id.sh\""
+
 if grep -q "terminal-id.sh" "$RC_FILE" 2>/dev/null; then
     echo "Shell integration already configured in $RC_FILE"
 else
-    echo ""
-    echo "Add shell integration to $RC_FILE?"
-    echo "This will add: $SOURCE_LINE"
-    echo ""
-    read -p "Proceed? [Y/n] " -n 1 -r
-    echo ""
-
-    if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
-        echo "" >> "$RC_FILE"
-        echo "# Terminal Identity - visual terminal differentiation" >> "$RC_FILE"
-        echo "$SOURCE_LINE" >> "$RC_FILE"
-        echo -e "${GREEN}Added to $RC_FILE${NC}"
-    else
-        echo "Skipped. Add manually when ready:"
-        echo "  echo '$SOURCE_LINE' >> $RC_FILE"
-    fi
+    echo "Adding shell integration to $RC_FILE..."
+    echo "" >> "$RC_FILE"
+    echo "# Terminal Identity - visual terminal differentiation" >> "$RC_FILE"
+    echo "$SOURCE_LINE" >> "$RC_FILE"
+    echo -e "${GREEN}Added source line to $RC_FILE${NC}"
 fi
 
-# Prompt configuration
-echo ""
-echo "To add the identity icon to your prompt, add this to $RC_FILE:"
-echo ""
-
-if [[ "$SHELL_NAME" == "zsh" ]]; then
-    echo "  # Add to your PROMPT variable:"
-    echo "  PROMPT='\$(__tid_prompt) '\$PROMPT"
-    echo ""
-    echo "  # Or for right prompt:"
-    echo "  RPROMPT='\$(__tid_prompt)'"
+# Add prompt integration if not already present
+if grep -q "__tid_prompt" "$RC_FILE" 2>/dev/null; then
+    echo "Prompt integration already configured in $RC_FILE"
 else
-    echo "  # Add to your PS1 variable:"
-    echo "  PS1='\$(__tid_prompt) '\$PS1"
+    echo "Adding prompt integration to $RC_FILE..."
+
+    if [[ "$SHELL_NAME" == "zsh" ]]; then
+        echo "PROMPT='\$(__tid_prompt) '\"\$PROMPT\"" >> "$RC_FILE"
+    else
+        echo "PS1='\$(__tid_prompt) '\"\$PS1\"" >> "$RC_FILE"
+    fi
+
+    echo -e "${GREEN}Added prompt integration to $RC_FILE${NC}"
 fi
 
 echo ""
 echo -e "${GREEN}Installation complete!${NC}"
 echo ""
-echo "Quick start:"
-echo "  1. Restart your terminal or run: source $RC_FILE"
-echo "  2. Run: tid list              # See available identities"
-echo "  3. Run: tid set rocket        # Set session identity"
-echo "  4. Run: tid rule . star       # Set rule for current directory"
+echo "Restart your terminal or run: source $RC_FILE"
 echo ""
-echo "For more info: tid help"
+echo "Commands:"
+echo "  tid list              See available identities"
+echo "  tid set rocket        Set session identity"
+echo "  tid reroll            Get a new random session icon"
+echo "  tid rule . star       Set rule for current directory"
+echo "  tid help              Show all commands"

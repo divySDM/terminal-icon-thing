@@ -19,7 +19,7 @@ echo "Terminal Identity Uninstaller"
 echo "============================="
 echo ""
 
-# Find all config files that might contain terminal-id
+# Find all config files that might contain terminal-id or __tid_prompt
 find_tid_configs() {
     local configs=(
         "$HOME/.zshrc"
@@ -33,8 +33,10 @@ find_tid_configs() {
     local found=()
 
     for config in "${configs[@]}"; do
-        if [[ -f "$config" ]] && grep -q "terminal-id" "$config" 2>/dev/null; then
-            found+=("$config")
+        if [[ -f "$config" ]]; then
+            if grep -q "terminal-id\|__tid_prompt" "$config" 2>/dev/null; then
+                found+=("$config")
+            fi
         fi
     done
 
@@ -46,19 +48,19 @@ FOUND_CONFIGS=$(find_tid_configs)
 
 if [[ -n "$FOUND_CONFIGS" ]]; then
     for RC_FILE in $FOUND_CONFIGS; do
-        echo "Removing shell integration from $RC_FILE..."
+        echo "Removing terminal-id from $RC_FILE..."
 
         # Create backup
         cp "$RC_FILE" "$RC_FILE.tid-backup"
 
-        # Remove terminal-id lines (comment and source line)
-        grep -v "terminal-id" "$RC_FILE.tid-backup" > "$RC_FILE"
+        # Remove terminal-id lines (comment, source line, and prompt integration)
+        grep -v "terminal-id\|__tid_prompt" "$RC_FILE.tid-backup" > "$RC_FILE"
 
         echo -e "${GREEN}Removed from $RC_FILE${NC}"
         echo "  Backup saved to $RC_FILE.tid-backup"
     done
 else
-    echo "No shell integration found in any config files."
+    echo "No terminal-id configuration found in any config files."
 fi
 
 # Remove tid binary
@@ -102,5 +104,3 @@ echo ""
 echo -e "${GREEN}Uninstallation complete!${NC}"
 echo ""
 echo "Please restart your terminal to apply changes."
-echo ""
-echo "Note: You may want to remove any __tid_prompt references from your PROMPT/PS1."
