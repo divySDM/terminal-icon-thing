@@ -3,6 +3,11 @@
 # Source this file in your .zshrc or .bashrc
 # Compatible with bash 3.2+ and zsh
 
+# Enable prompt substitution for zsh (required for $(__tid_prompt) to expand)
+if [ -n "$ZSH_VERSION" ]; then
+    setopt PROMPT_SUBST
+fi
+
 # Configuration paths
 TID_CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/terminal-id"
 TID_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/terminal-id"
