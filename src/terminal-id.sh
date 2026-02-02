@@ -313,3 +313,54 @@ tid_bash_prompt() {
     # Returns string suitable for PS1 variable
     echo '$(__tid_prompt) '
 }
+
+# tid function - handles commands that need to modify environment variables
+# Commands like set/unset/reroll need to run in the current shell context
+tid() {
+    local cmd="${1:-help}"
+
+    case "$cmd" in
+        set)
+            local identity="$2"
+            if [ -z "$identity" ]; then
+                echo "Error: identity name required"
+                echo "Usage: tid set <identity>"
+                return 1
+            fi
+            # Verify identity exists
+            local emoji
+            emoji=$(__tid_get_emoji "$identity")
+            if [ -z "$emoji" ]; then
+                echo "Error: unknown identity '$identity'"
+                echo "Run 'tid list' to see available identities"
+                return 1
+            fi
+            export TID_IDENTITY="$identity"
+            __tid_clear_cache
+            echo "Set identity: $identity $emoji"
+            ;;
+        unset)
+            unset TID_IDENTITY
+            __tid_clear_cache
+            echo "Cleared identity override"
+            ;;
+        reroll)
+            __tid_reroll_session
+            __tid_clear_cache
+            echo "New session icon: $TID_SESSION_ICON"
+            ;;
+        *)
+            # Delegate to external tid script for other commands
+            local script_path="${TID_DATA_DIR:-$HOME/.local/share/terminal-id}/../bin/tid"
+            if [ ! -x "$script_path" ]; then
+                script_path="$HOME/.local/bin/tid"
+            fi
+            if [ -x "$script_path" ]; then
+                "$script_path" "$@"
+            else
+                echo "Error: tid script not found at $script_path"
+                return 1
+            fi
+            ;;
+    esac
+}

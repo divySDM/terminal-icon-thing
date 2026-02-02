@@ -147,9 +147,11 @@ else
     echo "Adding prompt integration to $RC_FILE..."
 
     if [[ "$SHELL_NAME" == "zsh" ]]; then
-        echo "PROMPT='\$(__tid_prompt) '\"\$PROMPT\"" >> "$RC_FILE"
+        # Simple zsh prompt: icon, directory, prompt char
+        echo "PROMPT='\$(__tid_prompt) %~ %# '" >> "$RC_FILE"
     else
-        echo "PS1='\$(__tid_prompt) '\"\$PS1\"" >> "$RC_FILE"
+        # Simple bash prompt: icon, directory, prompt char
+        echo "PS1='\$(__tid_prompt) \w \$ '" >> "$RC_FILE"
     fi
 
     echo -e "${GREEN}Added prompt integration to $RC_FILE${NC}"
