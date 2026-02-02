@@ -34,7 +34,7 @@ find_tid_configs() {
 
     for config in "${configs[@]}"; do
         if [[ -f "$config" ]]; then
-            if grep -q "terminal-id\|__tid_prompt" "$config" 2>/dev/null; then
+            if grep -qi "terminal.id\|__tid_prompt" "$config" 2>/dev/null; then
                 found+=("$config")
             fi
         fi
@@ -54,7 +54,8 @@ if [[ -n "$FOUND_CONFIGS" ]]; then
         cp "$RC_FILE" "$RC_FILE.tid-backup"
 
         # Remove terminal-id lines (comment, source line, and prompt integration)
-        grep -v "terminal-id\|__tid_prompt" "$RC_FILE.tid-backup" > "$RC_FILE"
+        # Using -i for case insensitive and .id to match both "terminal-id" and "Terminal Identity"
+        grep -vi "terminal.id\|__tid_prompt" "$RC_FILE.tid-backup" > "$RC_FILE"
 
         echo -e "${GREEN}Removed from $RC_FILE${NC}"
         echo "  Backup saved to $RC_FILE.tid-backup"
