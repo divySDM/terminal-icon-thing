@@ -50,16 +50,72 @@ fi
 echo -e "${GREEN}Files installed successfully!${NC}"
 echo ""
 
-# Detect shell
+# Detect shell and find appropriate rc file
 SHELL_NAME=$(basename "$SHELL")
 RC_FILE=""
 
+# Find zsh config file - check common locations in order of preference
+find_zsh_config() {
+    local configs=("$HOME/.zshrc" "$HOME/.zprofile" "$HOME/.zshenv" "$HOME/.zlogin")
+
+    # First, check if terminal-id is already installed in any file
+    for config in "${configs[@]}"; do
+        if [[ -f "$config" ]] && grep -q "terminal-id" "$config" 2>/dev/null; then
+            echo "$config"
+            return 0
+        fi
+    done
+
+    # Next, prefer .zshrc if it exists
+    if [[ -f "$HOME/.zshrc" ]]; then
+        echo "$HOME/.zshrc"
+        return 0
+    fi
+
+    # Check if .zprofile exists (common on macOS)
+    if [[ -f "$HOME/.zprofile" ]]; then
+        echo "$HOME/.zprofile"
+        return 0
+    fi
+
+    # Default to .zshrc (will be created)
+    echo "$HOME/.zshrc"
+}
+
+# Find bash config file
+find_bash_config() {
+    local configs=("$HOME/.bashrc" "$HOME/.bash_profile" "$HOME/.profile")
+
+    # First, check if terminal-id is already installed in any file
+    for config in "${configs[@]}"; do
+        if [[ -f "$config" ]] && grep -q "terminal-id" "$config" 2>/dev/null; then
+            echo "$config"
+            return 0
+        fi
+    done
+
+    # Prefer .bashrc for interactive shells
+    if [[ -f "$HOME/.bashrc" ]]; then
+        echo "$HOME/.bashrc"
+        return 0
+    fi
+
+    # Check .bash_profile (common on macOS)
+    if [[ -f "$HOME/.bash_profile" ]]; then
+        echo "$HOME/.bash_profile"
+        return 0
+    fi
+
+    # Default to .bashrc
+    echo "$HOME/.bashrc"
+}
+
 case "$SHELL_NAME" in
     zsh)
-        RC_FILE="$HOME/.zshrc"
+        RC_FILE=$(find_zsh_config)
         ;;
     bash)
-        RC_FILE="$HOME/.bashrc"
+        RC_FILE=$(find_bash_config)
         ;;
     *)
         echo -e "${YELLOW}Warning: Unknown shell '$SHELL_NAME'${NC}"

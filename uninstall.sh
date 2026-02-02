@@ -19,22 +19,33 @@ echo "Terminal Identity Uninstaller"
 echo "============================="
 echo ""
 
-# Detect shell
-SHELL_NAME=$(basename "$SHELL")
-RC_FILE=""
+# Find all config files that might contain terminal-id
+find_tid_configs() {
+    local configs=(
+        "$HOME/.zshrc"
+        "$HOME/.zprofile"
+        "$HOME/.zshenv"
+        "$HOME/.zlogin"
+        "$HOME/.bashrc"
+        "$HOME/.bash_profile"
+        "$HOME/.profile"
+    )
+    local found=()
 
-case "$SHELL_NAME" in
-    zsh)
-        RC_FILE="$HOME/.zshrc"
-        ;;
-    bash)
-        RC_FILE="$HOME/.bashrc"
-        ;;
-esac
+    for config in "${configs[@]}"; do
+        if [[ -f "$config" ]] && grep -q "terminal-id" "$config" 2>/dev/null; then
+            found+=("$config")
+        fi
+    done
 
-# Remove shell integration from rc file
-if [[ -n "$RC_FILE" ]] && [[ -f "$RC_FILE" ]]; then
-    if grep -q "terminal-id" "$RC_FILE" 2>/dev/null; then
+    echo "${found[@]}"
+}
+
+# Remove shell integration from all config files that have it
+FOUND_CONFIGS=$(find_tid_configs)
+
+if [[ -n "$FOUND_CONFIGS" ]]; then
+    for RC_FILE in $FOUND_CONFIGS; do
         echo "Removing shell integration from $RC_FILE..."
 
         # Create backup
@@ -45,12 +56,9 @@ if [[ -n "$RC_FILE" ]] && [[ -f "$RC_FILE" ]]; then
 
         echo -e "${GREEN}Removed from $RC_FILE${NC}"
         echo "  Backup saved to $RC_FILE.tid-backup"
-    else
-        echo "No shell integration found in $RC_FILE"
-    fi
+    done
 else
-    echo -e "${YELLOW}Warning: Could not detect shell rc file${NC}"
-    echo "Please manually remove any terminal-id lines from your shell config."
+    echo "No shell integration found in any config files."
 fi
 
 # Remove tid binary
@@ -93,7 +101,6 @@ fi
 echo ""
 echo -e "${GREEN}Uninstallation complete!${NC}"
 echo ""
-echo "Please restart your terminal or run:"
-echo "  source $RC_FILE"
+echo "Please restart your terminal to apply changes."
 echo ""
 echo "Note: You may want to remove any __tid_prompt references from your PROMPT/PS1."
