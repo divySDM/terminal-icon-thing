@@ -138,6 +138,19 @@ tid set rocket  # Sets TID_IDENTITY
 tid unset       # Removes TID_IDENTITY
 ```
 
+### TID_SESSION_ICON
+
+Auto-assigned session icon (set when shell starts):
+
+```bash
+echo $TID_SESSION_ICON  # Shows current session icon, e.g., 🎪
+```
+
+- Automatically assigned from a pool of ~80 emojis when you start a new terminal
+- Persists for the life of the terminal session
+- Inherited by subshells
+- Use `tid reroll` to get a new random icon
+
 ### XDG Directories
 
 Terminal Identity respects XDG Base Directory specification:
@@ -152,7 +165,7 @@ When determining which identity to display:
 1. **TID_IDENTITY** environment variable (highest priority)
 2. **Directory rules** matching current working directory
 3. **Git root rules** matching the repository root
-4. **Hash fallback** - consistent colored circle based on path
+4. **TID_SESSION_ICON** - unique icon auto-assigned at shell start
 
 ## Built-in Identities
 
@@ -185,10 +198,30 @@ These are always available:
 | go | 🐹 | Go/Golang projects |
 | docker | 🐳 | Docker or container projects |
 
-## Fallback Colors
+## Reserved Icons
 
-When no identity matches, a consistent colored circle is assigned based on the directory path hash:
+The following icons are **reserved** and never auto-assigned to sessions. They only appear when explicitly configured via rules or manual override:
 
-🔵 🟢 🟡 🟠 🔴 🟣 ⚪ 🟤 💠 🔷 🔶 🔸 🔹 🌐 💫 ✨
+| Name | Emoji | Purpose |
+|------|-------|---------|
+| warning | ⚠️ | Production or danger zones |
+| lock | 🔒 | Security or authentication |
+| success | ✅ | Completed or stable projects |
+| bug | 🐛 | Debugging or bug fixes |
 
-The same directory will always get the same fallback color.
+This ensures these icons always carry intentional meaning. For example, configure production directories with the warning icon:
+
+```toml
+"/var/www/production" = "warning"
+```
+
+## Auto-Assign Pool
+
+When no identity is specified, a unique icon is assigned from a pool of ~80 visually distinct emojis. This includes:
+
+- Most named identities (rocket, tree, gear, etc.)
+- Expanded set: flowers, animals, entertainment, travel, and objects
+
+The session icon is assigned once when your shell starts and persists until the terminal closes. Subshells inherit the parent's session icon.
+
+Use `tid reroll` to get a new random session icon if you want a different one.

@@ -28,11 +28,12 @@ tid rule ~/projects/myapp star      # Set directory rule
 
 ## Features
 
-- **Per-directory identities**: Same directory always shows the same icon
+- **Automatic session icons**: Each terminal automatically gets a unique icon from a pool of ~80 emojis
+- **Per-directory rules**: Configure specific icons for directories and projects
 - **Manual override**: Set any identity for the current session
-- **24 built-in emoji identities**: rocket, tree, gear, star, and more
+- **24 named identities**: rocket, tree, gear, star, and more
 - **Custom identities**: Define your own icons
-- **Works with zsh and bash**: Portable shell integration
+- **Works with zsh and bash**: Portable shell integration (bash 3.2+ compatible)
 - **Fast**: Caches identity per directory, no slowdown
 
 ## Usage
@@ -131,7 +132,32 @@ Identity is resolved in this order:
 1. **Environment variable**: `TID_IDENTITY` (set by `tid set`)
 2. **Directory rules**: Exact or prefix match from `rules.toml`
 3. **Git root rules**: Rules matching the git repository root
-4. **Hash fallback**: Consistent colored circle based on directory path
+4. **Session icon**: Unique icon auto-assigned when terminal starts (from pool of ~80 emojis)
+
+### Session Icons
+
+Each terminal automatically gets a unique icon when it starts. This makes it easy to distinguish between multiple terminals working in the same directory.
+
+```bash
+# Terminal 1: 🚀 ~/projects/api $
+# Terminal 2: 🌺 ~/projects/api $
+# Terminal 3: 🎭 ~/projects/api $
+```
+
+- Session icons persist for the life of the terminal (unchanged by `cd`)
+- Subshells inherit the parent's session icon
+- Use `tid reroll` to get a new random session icon
+- Use `tid current` to see your current icon and its source
+
+### Reserved Icons
+
+Some icons are reserved for explicit rules only and never auto-assigned:
+- ⚠️ warning - Production or danger zones
+- 🔒 lock - Security or authentication
+- ✅ success - Completed or stable projects
+- 🐛 bug - Debugging or bug fixes
+
+This ensures these icons always signal intentional meaning when they appear.
 
 ## Built-in Identities
 
@@ -162,9 +188,20 @@ Identity is resolved in this order:
 | go | 🐹 | Go/Golang projects |
 | docker | 🐳 | Docker or container projects |
 
+### Re-rolling Session Icon
+
+Don't like your auto-assigned icon? Get a new one:
+
+```bash
+tid reroll
+# New session icon: 🎪
+# Run this command to apply:
+#   export TID_SESSION_ICON='🎪'
+```
+
 ## Requirements
 
-- Bash 4+ or Zsh
+- Bash 3.2+ or Zsh (macOS compatible)
 - Terminal with Unicode emoji support (most modern terminals)
 
 ## Troubleshooting

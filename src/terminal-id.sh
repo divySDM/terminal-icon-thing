@@ -13,7 +13,7 @@ TID_IDENTITIES_FILE="$TID_CONFIG_DIR/identities.toml"
 _TID_CACHE_DIR=""
 _TID_CACHE_IDENTITY=""
 
-# Default identities - name|emoji pairs
+# Named identities - name|emoji pairs (for rules and tid set)
 _TID_DEFAULTS="
 bolt|⚡
 bug|🐛
@@ -41,8 +41,15 @@ warning|⚠️
 work|💼
 "
 
-# Fallback emojis for hash-based assignment
-_TID_FALLBACKS="🔵 🟢 🟡 🟠 🔴 🟣 ⚪ 🟤 💠 🔷 🔶 🔸 🔹 🌐 💫 ✨"
+# Reserved icons (never auto-assigned) - status indicators only
+_TID_RESERVED="warning lock success bug"
+
+# Auto-assign pool - large set of visually distinct emojis for session assignment
+# Includes named identities (except reserved) plus expanded set (~70 total)
+_TID_AUTO_POOL="🚀 🌳 ⚙️ ⚡ ☁️ 🗄️ 🐳 📚 🔥 💎 🐹 ❤️ 🏠 📦 🐍 🤖 🦀 ⭐ 🧪 💼 🌸 🌺 🌻 🌷 🌹 🍀 🌵 🎋 🎍 🍄 🦋 🐝 🐞 🦊 🦁 🐯 🦄 🐙 🦑 🦐 🎪 🎭 🎨 🎯 🎲 🎳 🎸 🎺 🎻 🥁 🚂 ⛵ 🚁 🎠 🎡 🎢 ⛱️ 🏖️ 🏔️ 🗻 🔮 🎀 🎁 🏆 🎖️ 🧩 🪁 🎈 🎏 🪷 🍁 🍂 🌾 🌴 🪻 🪸 🦩 🦚 🦜"
+
+# Count icons in auto pool
+_TID_AUTO_POOL_COUNT=80
 
 # Get emoji for an identity name
 __tid_get_emoji() {
@@ -144,7 +151,7 @@ __tid_hash_to_index() {
     echo $((hash % max))
 }
 
-# Resolve identity for current context
+# Resolve identity for current context (returns identity name, not emoji)
 __tid_resolve_identity() {
     local dir="${PWD}"
 
@@ -173,15 +180,53 @@ __tid_resolve_identity() {
         fi
     fi
 
-    # 4. No match - return empty (will use fallback)
+    # 4. No match - return empty (will use session icon)
     return 1
+}
+
+# Generate and assign session icon (called once at shell startup)
+__tid_init_session() {
+    # If TID_SESSION_ICON is already set (inherited from parent), keep it
+    if [ -n "$TID_SESSION_ICON" ]; then
+        return 0
+    fi
+
+    # Generate unique session ID from PID + RANDOM + timestamp
+    local session_id="$$-${RANDOM:-0}-$(date +%s 2>/dev/null || echo 0)"
+
+    # Hash to get index into auto pool
+    local idx
+    idx=$(__tid_hash_to_index "$session_id" $_TID_AUTO_POOL_COUNT)
+
+    # Get emoji at that index (1-based for cut)
+    TID_SESSION_ICON=$(echo "$_TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
+
+    # Export so subshells inherit it
+    export TID_SESSION_ICON
+}
+
+# Re-roll session icon (pick a new random one)
+__tid_reroll_session() {
+    # Force new assignment by clearing and regenerating
+    unset TID_SESSION_ICON
+
+    # Use RANDOM with current time for more entropy
+    local session_id="$$-${RANDOM:-0}-$(date +%s%N 2>/dev/null || date +%s)"
+
+    local idx
+    idx=$(__tid_hash_to_index "$session_id" $_TID_AUTO_POOL_COUNT)
+
+    TID_SESSION_ICON=$(echo "$_TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
+    export TID_SESSION_ICON
+
+    echo "$TID_SESSION_ICON"
 }
 
 # Get the prompt emoji for current context
 __tid_prompt() {
     local dir="${PWD}"
 
-    # Use cache if directory hasn't changed
+    # Use cache if directory hasn't changed and we have a cached value
     if [ "$dir" = "$_TID_CACHE_DIR" ] && [ -n "$_TID_CACHE_IDENTITY" ]; then
         echo "$_TID_CACHE_IDENTITY"
         return
@@ -189,7 +234,7 @@ __tid_prompt() {
 
     local identity emoji
 
-    # Try to resolve named identity
+    # Try to resolve named identity (manual override or rules)
     identity=$(__tid_resolve_identity)
 
     if [ -n "$identity" ]; then
@@ -202,21 +247,16 @@ __tid_prompt() {
         fi
     fi
 
-    # Fallback: hash-based consistent random emoji
-    local hash_source="${dir}"
-    local git_root
-    git_root=$(__tid_get_git_root)
-    if [ -n "$git_root" ]; then
-        hash_source="$git_root"
+    # Fallback: use session icon (assigned at shell start)
+    if [ -n "$TID_SESSION_ICON" ]; then
+        _TID_CACHE_DIR="$dir"
+        _TID_CACHE_IDENTITY="$TID_SESSION_ICON"
+        echo "$TID_SESSION_ICON"
+        return
     fi
 
-    local idx
-    idx=$(__tid_hash_to_index "$hash_source" 16)
-    emoji=$(echo "$_TID_FALLBACKS" | cut -d' ' -f$((idx + 1)))
-
-    _TID_CACHE_DIR="$dir"
-    _TID_CACHE_IDENTITY="$emoji"
-    echo "$emoji"
+    # Ultimate fallback (shouldn't happen if __tid_init_session ran)
+    echo "🔵"
 }
 
 # Clear the identity cache (call after cd or tid set)
@@ -224,6 +264,9 @@ __tid_clear_cache() {
     _TID_CACHE_DIR=""
     _TID_CACHE_IDENTITY=""
 }
+
+# Initialize session icon when this file is sourced
+__tid_init_session
 
 # Hook into cd to clear cache
 if [ -n "$ZSH_VERSION" ]; then

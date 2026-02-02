@@ -11,11 +11,11 @@ TID_DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/terminal-id"
 TID_RULES_FILE="$TID_CONFIG_DIR/rules.toml"
 TID_IDENTITIES_FILE="$TID_CONFIG_DIR/identities.toml"
 
-# Default identities - space-separated "name:emoji:description" entries
-# Using | as internal separator since : appears in descriptions
+# Named identities - name|emoji|description
+# These can be used with `tid set` and directory rules
 TID_DEFAULTS="
 bolt|⚡|Fast, performance, or scripts
-bug|🐛|Debugging or bug fixes
+bug|🐛|Debugging or bug fixes [reserved]
 cloud|☁️|Cloud, AWS, or remote systems
 database|🗄️|Database or data projects
 docker|🐳|Docker or container projects
@@ -26,19 +26,36 @@ gem|💎|Ruby or precious projects
 go|🐹|Go/Golang projects
 heart|❤️|Personal or passion projects
 home|🏠|Home directory or personal
-lock|🔒|Security or authentication
+lock|🔒|Security or authentication [reserved]
 node|📦|Node.js or package projects
 python|🐍|Python projects
 robot|🤖|AI, automation, or bots
 rocket|🚀|Launch, deploy, or API projects
 rust|🦀|Rust projects
 star|⭐|Important or favorite projects
-success|✅|Completed or stable projects
+success|✅|Completed or stable projects [reserved]
 test|🧪|Testing or experiments
 tree|🌳|Frontend, UI, or growth projects
-warning|⚠️|Production or danger zones
+warning|⚠️|Production or danger zones [reserved]
 work|💼|Work or professional projects
 "
+
+# Reserved icons (never auto-assigned, only via rules/manual)
+TID_RESERVED="warning lock success bug"
+
+# Auto-assign pool - icons available for automatic session assignment
+# Includes most named identities plus expanded set (~80 total)
+TID_AUTO_POOL="🚀 🌳 ⚙️ ⚡ ☁️ 🗄️ 🐳 📚 🔥 💎 🐹 ❤️ 🏠 📦 🐍 🤖 🦀 ⭐ 🧪 💼 🌸 🌺 🌻 🌷 🌹 🍀 🌵 🎋 🎍 🍄 🦋 🐝 🐞 🦊 🦁 🐯 🦄 🐙 🦑 🦐 🎪 🎭 🎨 🎯 🎲 🎳 🎸 🎺 🎻 🥁 🚂 ⛵ 🚁 🎠 🎡 🎢 ⛱️ 🏖️ 🏔️ 🗻 🔮 🎀 🎁 🏆 🎖️ 🧩 🪁 🎈 🎏 🪷 🍁 🍂 🌾 🌴 🪻 🪸 🦩 🦚 🦜"
+TID_AUTO_POOL_COUNT=80
+
+# Check if identity is reserved
+is_reserved() {
+    local name="$1"
+    case " $TID_RESERVED " in
+        *" $name "*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
 
 # Get emoji for a default identity
 get_default_emoji() {
@@ -70,7 +87,8 @@ tid - Terminal Identity CLI
 Usage:
     tid set <identity>              Set session identity (e.g., tid set rocket)
     tid unset                       Remove session identity override
-    tid current                     Show current identity
+    tid reroll                      Get a new random session icon
+    tid current                     Show current identity and source
     tid list                        List all available identities
     tid rule <path> <identity>      Add a directory rule
     tid rules                       List all directory rules
@@ -79,23 +97,33 @@ Usage:
 
 Examples:
     tid set rocket                  Set current session to rocket icon
+    tid reroll                      Get a new random icon for this session
     tid rule ~/projects/api rocket  Always use rocket for ~/projects/api
     tid list                        Show all available identities
 
+Session Icons:
+    Each terminal automatically gets a unique icon from a pool of ~80 emojis.
+    Use 'tid reroll' to get a different random icon for this session.
+
 Environment:
-    TID_IDENTITY                    Override identity for current session
+    TID_IDENTITY                    Manual identity override
+    TID_SESSION_ICON                Auto-assigned session icon (inherited by subshells)
 EOF
 }
 
 # List all identities
 cmd_list() {
-    echo "Available identities:"
+    echo "Named identities (for rules and 'tid set'):"
     echo ""
 
-    # Display default identities (already sorted in TID_DEFAULTS)
+    # Display default identities
     echo "$TID_DEFAULTS" | while IFS='|' read -r name emoji desc; do
         if [ -n "$name" ]; then
-            printf "  %-12s %s  %s\n" "$name" "$emoji" "$desc"
+            if is_reserved "$name"; then
+                printf "  %-12s %s  %s\n" "$name" "$emoji" "$desc"
+            else
+                printf "  %-12s %s  %s\n" "$name" "$emoji" "$desc"
+            fi
         fi
     done
 
@@ -105,7 +133,6 @@ cmd_list() {
         echo "Custom identities (from $TID_IDENTITIES_FILE):"
         current_section=""
         while IFS= read -r line; do
-            # Match [section]
             case "$line" in
                 \[*\])
                     current_section="${line#[}"
@@ -113,10 +140,8 @@ cmd_list() {
                     ;;
                 emoji\ =\ \"*\"|emoji=\"*\")
                     if [ -n "$current_section" ]; then
-                        # Extract emoji value
                         emoji="${line#*\"}"
                         emoji="${emoji%\"*}"
-                        # Check if not a default
                         if ! identity_exists "$current_section"; then
                             printf "  %-12s %s\n" "$current_section" "$emoji"
                         fi
@@ -125,6 +150,13 @@ cmd_list() {
             esac
         done < "$TID_IDENTITIES_FILE"
     fi
+
+    echo ""
+    echo "Reserved icons (never auto-assigned, rules only):"
+    echo "  warning, lock, success, bug"
+    echo ""
+    echo "Auto-assign pool: $TID_AUTO_POOL_COUNT icons for automatic session assignment"
+    echo "Current session icon: ${TID_SESSION_ICON:-not set}"
 }
 
 # Get emoji for any identity (default or custom)
@@ -184,7 +216,6 @@ cmd_set() {
 
     # Verify identity exists
     if ! identity_exists "$identity"; then
-        # Check custom identities
         if [ ! -f "$TID_IDENTITIES_FILE" ] || ! grep -q "^\[$identity\]" "$TID_IDENTITIES_FILE" 2>/dev/null; then
             echo "Error: unknown identity '$identity'"
             echo "Run 'tid list' to see available identities"
@@ -216,27 +247,50 @@ cmd_unset() {
     unset TID_IDENTITY
 }
 
+# Reroll session icon
+cmd_reroll() {
+    # Generate new session ID for different icon
+    local session_id="$$-${RANDOM:-0}-$(date +%s%N 2>/dev/null || date +%s)"
+
+    # Hash to get index
+    local hash
+    hash=$(echo "$session_id" | cksum | cut -d' ' -f1)
+    local idx=$((hash % TID_AUTO_POOL_COUNT))
+
+    # Get emoji at index
+    local new_icon
+    new_icon=$(echo "$TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
+
+    echo "New session icon: $new_icon"
+    echo ""
+    echo "Run this command to apply:"
+    echo "  export TID_SESSION_ICON='$new_icon'"
+
+    # Export for current process
+    export TID_SESSION_ICON="$new_icon"
+}
+
 # Show current identity
 cmd_current() {
     local identity=""
+    local emoji=""
     local source=""
 
-    # Check TID_IDENTITY
+    # Check TID_IDENTITY (manual override)
     if [ -n "$TID_IDENTITY" ]; then
         identity="$TID_IDENTITY"
-        source="environment (TID_IDENTITY)"
+        emoji=$(get_emoji "$identity")
+        source="manual override (TID_IDENTITY)"
     fi
 
     # Check directory rules
     if [ -z "$identity" ] && [ -f "$TID_RULES_FILE" ]; then
         local dir="$PWD"
         while IFS= read -r line; do
-            # Skip comments and empty lines
             case "$line" in
                 \#*|"") continue ;;
             esac
 
-            # Parse "path" = "identity"
             case "$line" in
                 \"*\"\ =\ \"*\"|\"*\"=\"*\")
                     rule_path="${line#\"}"
@@ -244,15 +298,14 @@ cmd_current() {
                     rule_identity="${line##*= \"}"
                     rule_identity="${rule_identity%\"*}"
 
-                    # Expand ~
                     case "$rule_path" in
                         \~*) rule_path="$HOME${rule_path#\~}" ;;
                     esac
 
-                    # Check match
                     case "$dir" in
                         "$rule_path"|"$rule_path"/*)
                             identity="$rule_identity"
+                            emoji=$(get_emoji "$identity")
                             source="directory rule ($rule_path)"
                             break
                             ;;
@@ -262,7 +315,7 @@ cmd_current() {
         done < "$TID_RULES_FILE"
     fi
 
-    # Check git root
+    # Check git root rules
     if [ -z "$identity" ]; then
         local git_root
         git_root=$(git rev-parse --show-toplevel 2>/dev/null) || git_root=""
@@ -285,6 +338,7 @@ cmd_current() {
 
                         if [ "$git_root" = "$rule_path" ]; then
                             identity="$rule_identity"
+                            emoji=$(get_emoji "$identity")
                             source="git root rule ($rule_path)"
                             break
                         fi
@@ -294,32 +348,22 @@ cmd_current() {
         fi
     fi
 
-    if [ -n "$identity" ]; then
-        local emoji
-        emoji=$(get_emoji "$identity")
-        echo "Current identity: $identity $emoji"
+    # Check session icon
+    if [ -z "$identity" ] && [ -n "$TID_SESSION_ICON" ]; then
+        emoji="$TID_SESSION_ICON"
+        source="session (auto-assigned)"
+    fi
+
+    if [ -n "$emoji" ]; then
+        if [ -n "$identity" ]; then
+            echo "Current identity: $identity $emoji"
+        else
+            echo "Current icon: $emoji"
+        fi
         echo "Source: $source"
     else
-        echo "No explicit identity set."
-        echo "Using hash-based fallback for: $PWD"
-
-        # Calculate fallback
-        local hash_source="$PWD"
-        local git_root
-        git_root=$(git rev-parse --show-toplevel 2>/dev/null) || git_root=""
-        if [ -n "$git_root" ]; then
-            hash_source="$git_root"
-        fi
-
-        # Simple hash using cksum
-        local hash
-        hash=$(echo "$hash_source" | cksum | cut -d' ' -f1)
-        local fallbacks="🔵 🟢 🟡 🟠 🔴 🟣 ⚪ 🟤 💠 🔷 🔶 🔸 🔹 🌐 💫 ✨"
-        local count=16
-        local idx=$((hash % count))
-        local emoji
-        emoji=$(echo "$fallbacks" | cut -d' ' -f$((idx + 1)))
-        echo "Fallback emoji: $emoji"
+        echo "No identity set."
+        echo "Session icon not initialized (source terminal-id.sh first)"
     fi
 }
 
@@ -357,7 +401,6 @@ cmd_rule() {
 
     # Remove existing rule for this path if any
     if [ -f "$TID_RULES_FILE" ]; then
-        # Create temp file without the old rule
         grep -v "^\"$path\"" "$TID_RULES_FILE" > "$TID_RULES_FILE.tmp" 2>/dev/null || true
         mv "$TID_RULES_FILE.tmp" "$TID_RULES_FILE"
     fi
@@ -451,6 +494,9 @@ main() {
             ;;
         unset)
             cmd_unset
+            ;;
+        reroll)
+            cmd_reroll
             ;;
         current)
             cmd_current
