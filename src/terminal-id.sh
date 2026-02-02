@@ -252,16 +252,15 @@ __tid_prompt() {
         fi
     fi
 
-    # Fallback: use session icon (assigned at shell start)
-    if [ -n "$TID_SESSION_ICON" ]; then
-        _TID_CACHE_DIR="$dir"
-        _TID_CACHE_IDENTITY="$TID_SESSION_ICON"
-        echo "$TID_SESSION_ICON"
-        return
-    fi
+    # Fallback: hash directory to get consistent icon
+    # Same directory always gets the same icon
+    local idx
+    idx=$(__tid_hash_to_index "$dir" $_TID_AUTO_POOL_COUNT)
+    emoji=$(echo "$_TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
 
-    # Ultimate fallback (shouldn't happen if __tid_init_session ran)
-    echo "🔵"
+    _TID_CACHE_DIR="$dir"
+    _TID_CACHE_IDENTITY="$emoji"
+    echo "$emoji"
 }
 
 # Clear the identity cache (call after cd or tid set)
@@ -270,8 +269,6 @@ __tid_clear_cache() {
     _TID_CACHE_IDENTITY=""
 }
 
-# Initialize session icon when this file is sourced
-__tid_init_session
 
 # Hook into cd to clear cache
 if [ -n "$ZSH_VERSION" ]; then
@@ -315,7 +312,7 @@ tid_bash_prompt() {
 }
 
 # tid function - handles commands that need to modify environment variables
-# Commands like set/unset/reroll need to run in the current shell context
+# Commands like set/unset need to run in the current shell context
 tid() {
     local cmd="${1:-help}"
 
@@ -343,11 +340,6 @@ tid() {
             unset TID_IDENTITY
             __tid_clear_cache
             echo "Cleared identity override"
-            ;;
-        reroll)
-            __tid_reroll_session
-            __tid_clear_cache
-            echo "New session icon: $TID_SESSION_ICON"
             ;;
         *)
             # Delegate to external tid script for other commands

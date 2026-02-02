@@ -87,7 +87,6 @@ tid - Terminal Identity CLI
 Usage:
     tid set <identity>              Set session identity (e.g., tid set rocket)
     tid unset                       Remove session identity override
-    tid reroll                      Get a new random session icon
     tid current                     Show current identity and source
     tid list                        List all available identities
     tid rule <path> <identity>      Add a directory rule
@@ -97,17 +96,15 @@ Usage:
 
 Examples:
     tid set rocket                  Set current session to rocket icon
-    tid reroll                      Get a new random icon for this session
     tid rule ~/projects/api rocket  Always use rocket for ~/projects/api
     tid list                        Show all available identities
 
-Session Icons:
-    Each terminal automatically gets a unique icon from a pool of ~80 emojis.
-    Use 'tid reroll' to get a different random icon for this session.
+Directory Icons:
+    Each directory gets a consistent icon from a pool of ~80 emojis.
+    The same directory always shows the same icon across all terminals.
 
 Environment:
     TID_IDENTITY                    Manual identity override
-    TID_SESSION_ICON                Auto-assigned session icon (inherited by subshells)
 EOF
 }
 
@@ -152,11 +149,10 @@ cmd_list() {
     fi
 
     echo ""
-    echo "Reserved icons (never auto-assigned, rules only):"
+    echo "Reserved icons (rules only, not used for directory fallback):"
     echo "  warning, lock, success, bug"
     echo ""
-    echo "Auto-assign pool: $TID_AUTO_POOL_COUNT icons for automatic session assignment"
-    echo "Current session icon: ${TID_SESSION_ICON:-not set}"
+    echo "Directory icon pool: $TID_AUTO_POOL_COUNT icons for directory-based assignment"
 }
 
 # Get emoji for any identity (default or custom)
@@ -247,29 +243,6 @@ cmd_unset() {
     unset TID_IDENTITY
 }
 
-# Reroll session icon
-cmd_reroll() {
-    # Generate new session ID for different icon
-    local session_id="$$-${RANDOM:-0}-$(date +%s%N 2>/dev/null || date +%s)"
-
-    # Hash to get index
-    local hash
-    hash=$(echo "$session_id" | cksum | cut -d' ' -f1)
-    local idx=$((hash % TID_AUTO_POOL_COUNT))
-
-    # Get emoji at index
-    local new_icon
-    new_icon=$(echo "$TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
-
-    echo "New session icon: $new_icon"
-    echo ""
-    echo "Run this command to apply:"
-    echo "  export TID_SESSION_ICON='$new_icon'"
-
-    # Export for current process
-    export TID_SESSION_ICON="$new_icon"
-}
-
 # Show current identity
 cmd_current() {
     local identity=""
@@ -348,23 +321,21 @@ cmd_current() {
         fi
     fi
 
-    # Check session icon
-    if [ -z "$identity" ] && [ -n "$TID_SESSION_ICON" ]; then
-        emoji="$TID_SESSION_ICON"
-        source="session (auto-assigned)"
+    # Fallback: directory-based icon
+    if [ -z "$emoji" ]; then
+        local hash
+        hash=$(echo "$PWD" | cksum | cut -d' ' -f1)
+        local idx=$((hash % TID_AUTO_POOL_COUNT))
+        emoji=$(echo "$TID_AUTO_POOL" | tr ' ' '\n' | sed -n "$((idx + 1))p")
+        source="directory hash ($PWD)"
     fi
 
-    if [ -n "$emoji" ]; then
-        if [ -n "$identity" ]; then
-            echo "Current identity: $identity $emoji"
-        else
-            echo "Current icon: $emoji"
-        fi
-        echo "Source: $source"
+    if [ -n "$identity" ]; then
+        echo "Current identity: $identity $emoji"
     else
-        echo "No identity set."
-        echo "Session icon not initialized (source terminal-id.sh first)"
+        echo "Current icon: $emoji"
     fi
+    echo "Source: $source"
 }
 
 # Add a directory rule
@@ -494,9 +465,6 @@ main() {
             ;;
         unset)
             cmd_unset
-            ;;
-        reroll)
-            cmd_reroll
             ;;
         current)
             cmd_current
