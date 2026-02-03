@@ -1,4 +1,5 @@
 inspiration/
+.claude/
 
 # Config files created during testing
 *.tmp
