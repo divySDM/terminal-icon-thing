@@ -11,30 +11,33 @@ Visually distinguish between terminal windows using emoji icons in your prompt.
 ## Quick Start
 
 ```bash
-# 1. Clone and install
-git clone <repo-url> terminal-id
-cd terminal-id
+# Clone and install
+git clone https://github.com/divySDM/terminal-icon-thing.git
+cd terminal-icon-thing
 ./install.sh
 
-# 2. Add to your prompt (in ~/.zshrc or ~/.bashrc)
-PROMPT='$(__tid_prompt) '$PROMPT    # zsh
-PS1='$(__tid_prompt) '$PS1          # bash
-
-# 3. Restart terminal and try it out
-tid list                            # See available identities
-tid set rocket                      # Set session identity
-tid rule ~/projects/myapp star      # Set directory rule
+# Restart your terminal - icons appear automatically!
 ```
+
+The installer automatically configures your shell prompt.
 
 ## Features
 
-- **Automatic session icons**: Each terminal automatically gets a unique icon from a pool of ~80 emojis
+- **Directory-based icons**: Each directory gets a consistent icon from a pool of ~170 distinct emojis
+- **Same directory = same icon**: All terminals in the same directory show the same icon
 - **Per-directory rules**: Configure specific icons for directories and projects
 - **Manual override**: Set any identity for the current session
 - **24 named identities**: rocket, tree, gear, star, and more
 - **Custom identities**: Define your own icons
 - **Works with zsh and bash**: Portable shell integration (bash 3.2+ compatible)
 - **Fast**: Caches identity per directory, no slowdown
+
+## How It Works
+
+Icons are determined by hashing the directory path. This means:
+- The same directory always shows the same icon
+- Different directories get different icons (from a pool of 168 visually distinct emojis)
+- No tracking or state required - purely computed from the path
 
 ## Usage
 
@@ -44,25 +47,19 @@ tid rule ~/projects/myapp star      # Set directory rule
 tid list
 ```
 
-Output:
-```
-Available identities:
-
-  bolt         ⚡  Fast, performance, or scripts
-  bug          🐛  Debugging or bug fixes
-  cloud        ☁️   Cloud, AWS, or remote systems
-  docker       🐳  Docker or container projects
-  docs         📚  Documentation projects
-  ...
-```
-
 ### Set Session Identity
 
 ```bash
 tid set rocket
 ```
 
-This sets `TID_IDENTITY=rocket` for the current session.
+This sets `TID_IDENTITY=rocket` for the current session, overriding the directory-based icon.
+
+### Clear Session Identity
+
+```bash
+tid unset
+```
 
 ### Add Directory Rule
 
@@ -96,9 +93,6 @@ Configuration files are stored in `~/.config/terminal-id/`:
 
 - `rules.toml` - Directory-to-identity mappings
 - `identities.toml` - Custom identity definitions
-- `config.toml` - Global settings
-
-See the `examples/` directory for sample configurations.
 
 ### Custom Identities
 
@@ -132,26 +126,11 @@ Identity is resolved in this order:
 1. **Environment variable**: `TID_IDENTITY` (set by `tid set`)
 2. **Directory rules**: Exact or prefix match from `rules.toml`
 3. **Git root rules**: Rules matching the git repository root
-4. **Session icon**: Unique icon auto-assigned when terminal starts (from pool of ~80 emojis)
-
-### Session Icons
-
-Each terminal automatically gets a unique icon when it starts. This makes it easy to distinguish between multiple terminals working in the same directory.
-
-```bash
-# Terminal 1: 🚀 ~/projects/api $
-# Terminal 2: 🌺 ~/projects/api $
-# Terminal 3: 🎭 ~/projects/api $
-```
-
-- Session icons persist for the life of the terminal (unchanged by `cd`)
-- Subshells inherit the parent's session icon
-- Use `tid reroll` to get a new random session icon
-- Use `tid current` to see your current icon and its source
+4. **Directory hash**: Consistent icon based on directory path
 
 ### Reserved Icons
 
-Some icons are reserved for explicit rules only and never auto-assigned:
+Some icons are reserved for explicit rules only and never used for directory hashing:
 - ⚠️ warning - Production or danger zones
 - 🔒 lock - Security or authentication
 - ✅ success - Completed or stable projects
@@ -188,40 +167,18 @@ This ensures these icons always signal intentional meaning when they appear.
 | go | 🐹 | Go/Golang projects |
 | docker | 🐳 | Docker or container projects |
 
-### Re-rolling Session Icon
-
-Don't like your auto-assigned icon? Get a new one:
+## Uninstall
 
 ```bash
-tid reroll
-# New session icon: 🎪
-# Run this command to apply:
-#   export TID_SESSION_ICON='🎪'
+./uninstall.sh
 ```
+
+This removes the shell integration and installed files.
 
 ## Requirements
 
 - Bash 3.2+ or Zsh (macOS compatible)
 - Terminal with Unicode emoji support (most modern terminals)
-
-## Troubleshooting
-
-### Emoji not showing
-
-- Ensure your terminal supports Unicode emoji
-- Try a different terminal (iTerm2, Terminal.app, VS Code terminal all work)
-- Check your font supports emoji
-
-### Identity not changing on cd
-
-- Run `tid current` to see what identity is being resolved
-- Check that your rule path is correct with `tid rules`
-- Make sure you've restarted your shell after installation
-
-### Prompt is slow
-
-- The identity is cached per directory, so it should only resolve once
-- If still slow, check that `TID_CONFIG_DIR` files aren't very large
 
 ## License
 
